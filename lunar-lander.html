@@ -94,6 +94,7 @@
     </div>
     
     <div class="info">
+        <div>Score: <span id="score">0</span></div>
         <div>Fuel: <span id="fuel">100</span>%</div>
         <div>Altitude: <span id="altitude">0</span>m</div>
         <div>Velocity: <span id="velocity">0.0</span> m/s</div>
@@ -122,13 +123,32 @@
             <strong>NIGHTMARE</strong><br>
             Extreme gravity • Tiny landing pads • Chaotic terrain • Fuel hungry
         </button>
+        
+        <div style="margin-top: 20px;">
+            <button onclick="showHighscores()">🏆 View Highscores</button>
+        </div>
     </div>
     
     <div class="game-over" id="gameOver">
         <h2 id="gameOverTitle">Game Over</h2>
         <p id="gameOverMessage"></p>
+        <div id="scoreBreakdown" style="margin: 20px 0; font-size: 14px; text-align: left;"></div>
         <button onclick="restartGame()">Play Again</button>
         <button onclick="showDifficultyScreen()">Change Difficulty</button>
+        <button onclick="showHighscores()">View Highscores</button>
+    </div>
+    
+    <div class="game-over" id="highscoreScreen">
+        <h2>🏆 Highscores</h2>
+        <div style="display: flex; gap: 20px; justify-content: center; margin: 20px 0;">
+            <button onclick="showHighscoreTab('easy')" id="hsEasy">Easy</button>
+            <button onclick="showHighscoreTab('medium')" id="hsMedium">Medium</button>
+            <button onclick="showHighscoreTab('hard')" id="hsHard">Hard</button>
+            <button onclick="showHighscoreTab('nightmare')" id="hsNightmare">Nightmare</button>
+        </div>
+        <div id="highscoreList" style="min-height: 200px; text-align: left; font-size: 14px;"></div>
+        <button onclick="hideHighscores()">Back</button>
+        <button onclick="clearHighscores()" style="background: #800;">Clear All Scores</button>
     </div>
 
     <script>
@@ -157,7 +177,34 @@
             stars: [],
             gameStarted: false,
             difficulty: 'medium',
-            paused: false
+            paused: false,
+            score: 0,
+            startTime: 0,
+            endTime: 0
+        };
+        
+        // Scoring system
+        const scoring = {
+            difficultyMultipliers: {
+                easy: 1,
+                medium: 2,
+                hard: 3,
+                nightmare: 5
+            },
+            bonuses: {
+                fuelBonus: 10,        // Points per % fuel remaining
+                speedBonus: 500,      // Bonus for gentle landing
+                precisionBonus: 1000, // Bonus for landing in center of pad
+                timeBonus: 2          // Points per second saved (under 60s)
+            }
+        };
+        
+        // Highscores (stored in localStorage)
+        let highscores = JSON.parse(localStorage.getItem('lunarLanderHighscores')) || {
+            easy: [],
+            medium: [],
+            hard: [],
+            nightmare: []
         };
         
         // Difficulty settings
@@ -373,6 +420,131 @@
             checkCollision();
         }
         
+        function calculateScore() {
+            if (!game.won) return 0;
+            
+            const timeTaken = (game.endTime - game.startTime) / 1000; // seconds
+            const fuelRemaining = Math.max(0, game.lander.fuel);
+            const landingSpeed = Math.sqrt(game.lander.vx * game.lander.vx + game.lander.vy * game.lander.vy);
+            const diffMultiplier = scoring.difficultyMultipliers[game.difficulty];
+            
+            let score = 1000; // Base score for successful landing
+            
+            // Fuel bonus
+            const fuelBonus = Math.round(fuelRemaining * scoring.bonuses.fuelBonus);
+            score += fuelBonus;
+            
+            // Speed bonus (gentle landing)
+            if (landingSpeed < 1) {
+                score += scoring.bonuses.speedBonus;
+            }
+            
+            // Time bonus (if under 60 seconds)
+            let timeBonus = 0;
+            if (timeTaken < 60) {
+                timeBonus = Math.round((60 - timeTaken) * scoring.bonuses.timeBonus);
+                score += timeBonus;
+            }
+            
+            // Precision bonus (landing near center of pad)
+            const precisionBonus = scoring.bonuses.precisionBonus;
+            score += precisionBonus;
+            
+            // Apply difficulty multiplier
+            score = Math.round(score * diffMultiplier);
+            
+            return {
+                total: score,
+                breakdown: {
+                    base: Math.round(1000 * diffMultiplier),
+                    fuel: Math.round(fuelBonus * diffMultiplier),
+                    speed: landingSpeed < 1 ? Math.round(scoring.bonuses.speedBonus * diffMultiplier) : 0,
+                    time: Math.round(timeBonus * diffMultiplier),
+                    precision: Math.round(precisionBonus * diffMultiplier),
+                    multiplier: diffMultiplier
+                },
+                stats: {
+                    time: timeTaken,
+                    fuel: fuelRemaining,
+                    speed: landingSpeed
+                }
+            };
+        }
+        
+        function addHighscore(difficulty, score, stats) {
+            const entry = {
+                score: score,
+                date: new Date().toLocaleDateString(),
+                time: stats.time.toFixed(1),
+                fuel: stats.fuel.toFixed(1),
+                speed: stats.speed.toFixed(2)
+            };
+            
+            highscores[difficulty].push(entry);
+            highscores[difficulty].sort((a, b) => b.score - a.score);
+            highscores[difficulty] = highscores[difficulty].slice(0, 10); // Keep top 10
+            
+            localStorage.setItem('lunarLanderHighscores', JSON.stringify(highscores));
+        }
+        
+        function showHighscores() {
+            document.getElementById('difficultyScreen').style.display = 'none';
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('highscoreScreen').style.display = 'block';
+            showHighscoreTab('medium'); // Default to medium
+        }
+        
+        function hideHighscores() {
+            document.getElementById('highscoreScreen').style.display = 'none';
+            if (game.gameStarted) {
+                document.getElementById('gameOver').style.display = 'block';
+            } else {
+                document.getElementById('difficultyScreen').style.display = 'block';
+            }
+        }
+        
+        function showHighscoreTab(difficulty) {
+            // Update button styles
+            document.querySelectorAll('#highscoreScreen button').forEach(btn => {
+                btn.style.background = '#333';
+            });
+            document.getElementById('hs' + difficulty.charAt(0).toUpperCase() + difficulty.slice(1)).style.background = '#555';
+            
+            const list = document.getElementById('highscoreList');
+            const scores = highscores[difficulty];
+            
+            if (scores.length === 0) {
+                list.innerHTML = '<p style="text-align: center; color: #666;">No scores yet for ' + difficulty + ' difficulty</p>';
+                return;
+            }
+            
+            let html = '<h3>' + difficulty.toUpperCase() + ' DIFFICULTY</h3>';
+            html += '<table style="width: 100%; border-collapse: collapse;">';
+            html += '<tr style="border-bottom: 1px solid #666;"><th>Rank</th><th>Score</th><th>Time</th><th>Fuel</th><th>Speed</th><th>Date</th></tr>';
+            
+            scores.forEach((entry, index) => {
+                html += `<tr style="border-bottom: 1px solid #333;">
+                    <td>${index + 1}</td>
+                    <td style="font-weight: bold;">${entry.score}</td>
+                    <td>${entry.time}s</td>
+                    <td>${entry.fuel}%</td>
+                    <td>${entry.speed} m/s</td>
+                    <td>${entry.date}</td>
+                </tr>`;
+            });
+            
+            html += '</table>';
+            list.innerHTML = html;
+        }
+        
+        function clearHighscores() {
+            if (confirm('Are you sure you want to clear all highscores?')) {
+                highscores = { easy: [], medium: [], hard: [], nightmare: [] };
+                localStorage.removeItem('lunarLanderHighscores');
+                showHighscoreTab('medium');
+            }
+        }
+        
         function checkCollision() {
             const lander = game.lander;
             const landerBottom = lander.y + lander.size;
@@ -389,21 +561,52 @@
             }
             
             if (landerBottom >= terrainHeight) {
+                game.endTime = Date.now();
                 const speed = Math.sqrt(lander.vx * lander.vx + lander.vy * lander.vy);
                 const angle = Math.abs(lander.angle);
                 
                 if (isOnLandingPad && speed < 2 && angle < 0.3) {
+                    // Successful landing
                     game.won = true;
                     game.gameOver = true;
-                    showGameOver("Mission Accomplished!", "Perfect landing! You're a true pilot.");
+                    
+                    // Calculate score
+                    const scoreData = calculateScore();
+                    game.score = scoreData.total;
+                    
+                    // Add to highscores
+                    addHighscore(game.difficulty, scoreData.total, scoreData.stats);
+                    
+                    // Create score breakdown display
+                    const breakdown = `
+                        <h3>🎉 MISSION SUCCESS! 🎉</h3>
+                        <div style="background: #333; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                            <h4>Score Breakdown:</h4>
+                            <div>Base Landing: ${scoreData.breakdown.base}</div>
+                            <div>Fuel Bonus: ${scoreData.breakdown.fuel}</div>
+                            <div>Speed Bonus: ${scoreData.breakdown.speed}</div>
+                            <div>Time Bonus: ${scoreData.breakdown.time}</div>
+                            <div>Precision Bonus: ${scoreData.breakdown.precision}</div>
+                            <div style="border-top: 1px solid #666; margin-top: 10px; padding-top: 10px;">
+                                <strong>Total Score: ${scoreData.total}</strong>
+                            </div>
+                            <div style="font-size: 12px; color: #ccc; margin-top: 5px;">
+                                Difficulty Multiplier: x${scoreData.breakdown.multiplier}
+                            </div>
+                        </div>
+                    `;
+                    
+                    showGameOver("Mission Accomplished!", "Perfect landing! You're a true pilot.", breakdown);
                 } else {
+                    // Crash
                     game.gameOver = true;
+                    game.score = 0;
                     let message = "Crashed! ";
                     if (!isOnLandingPad) message += "You must land on the flat surfaces.";
                     else if (speed >= 2) message += "Landing speed too high!";
                     else if (angle >= 0.3) message += "Landing angle too steep!";
                     
-                    showGameOver("Mission Failed", message);
+                    showGameOver("Mission Failed", message, "");
                 }
                 
                 lander.vx = 0;
@@ -417,6 +620,8 @@
             
             game.difficulty = difficulty;
             game.gameStarted = true;
+            game.startTime = Date.now();
+            game.score = 0;
             
             document.getElementById('difficultyScreen').style.display = 'none';
             
@@ -457,9 +662,10 @@
             document.getElementById('gameOver').style.display = 'none';
         }
         
-        function showGameOver(title, message) {
+        function showGameOver(title, message, scoreBreakdown = "") {
             document.getElementById('gameOverTitle').textContent = title;
             document.getElementById('gameOverMessage').textContent = message;
+            document.getElementById('scoreBreakdown').innerHTML = scoreBreakdown;
             document.getElementById('gameOver').style.display = 'block';
         }
         
@@ -609,6 +815,7 @@
             const altitude = Math.max(0, Math.round((canvas.height - lander.y) / 5));
             const velocity = Math.sqrt(lander.vx * lander.vx + lander.vy * lander.vy);
             
+            document.getElementById('score').textContent = game.score;
             document.getElementById('fuel').textContent = Math.max(0, Math.round(lander.fuel));
             document.getElementById('altitude').textContent = altitude;
             document.getElementById('velocity').textContent = velocity.toFixed(1);
