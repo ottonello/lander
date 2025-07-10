@@ -54,7 +54,6 @@ const DIFFICULTIES = {
         terrainRoughness: 10,
         landingPads: [
             { start: 100, end: 220, height: CONFIG.canvas.height - 80 },
-            { start: 340, end: 460, height: CONFIG.canvas.height - 120 },
             { start: 580, end: 700, height: CONFIG.canvas.height - 60 }
         ]
     },
@@ -67,7 +66,6 @@ const DIFFICULTIES = {
         terrainRoughness: 20,
         landingPads: [
             { start: 160, end: 240, height: CONFIG.canvas.height - 80 },
-            { start: 420, end: 500, height: CONFIG.canvas.height - 120 },
             { start: 660, end: 740, height: CONFIG.canvas.height - 60 }
         ]
     },
@@ -80,7 +78,6 @@ const DIFFICULTIES = {
         terrainRoughness: 35,
         landingPads: [
             { start: 180, end: 240, height: CONFIG.canvas.height - 90 },
-            { start: 370, end: 430, height: CONFIG.canvas.height - 140 },
             { start: 620, end: 680, height: CONFIG.canvas.height - 70 }
         ]
     },
@@ -93,7 +90,6 @@ const DIFFICULTIES = {
         terrainRoughness: 50,
         landingPads: [
             { start: 200, end: 240, height: CONFIG.canvas.height - 100 },
-            { start: 380, end: 420, height: CONFIG.canvas.height - 160 },
             { start: 600, end: 640, height: CONFIG.canvas.height - 80 }
         ]
     }
