@@ -628,7 +628,8 @@
             resetLander();
             generateTerrain();
             
-            game.lander.vx = 0.1; // Small test velocity
+            // Random initial velocity left or right (increased)
+            game.lander.vx = (Math.random() - 0.5) * 0.6; // Random between -0.3 and +0.3
         }
         
         function showDifficultyScreen() {
@@ -660,6 +661,11 @@
             resetLander();
             generateTerrain();
             document.getElementById('gameOver').style.display = 'none';
+            
+            // Add random initial velocity (increased)
+            game.lander.vx = (Math.random() - 0.5) * 0.6; // Random between -0.3 and +0.3
+            game.startTime = Date.now(); // Reset start time for scoring
+            game.score = 0; // Reset score
         }
         
         function showGameOver(title, message, scoreBreakdown = "") {
