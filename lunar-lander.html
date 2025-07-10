@@ -91,6 +91,7 @@
         <p><strong>Controls:</strong> Arrow Keys to thrust | Enter to pause | Space to restart</p>
         <p>Land gently on the flat surfaces to win!</p>
         <p><em>Click on the game area if controls stop working</em></p>
+        <button onclick="toggleMusic()" id="musicToggle" style="margin-top: 10px;">🎵 Music: ON</button>
     </div>
     
     <div class="info">
@@ -206,7 +207,12 @@
             rotationThrust: null,
             landing: null,
             crash: null,
-            button: null
+            button: null,
+            music: {
+                oscillators: [],
+                gainNodes: [],
+                playing: false
+            }
         };
         
         // Initialize audio context
@@ -218,6 +224,169 @@
                 return false;
             }
             return true;
+        }
+        
+        // Create ambient space music
+        function startBackgroundMusic() {
+            if (!audioContext || sounds.music.playing) return;
+            
+            sounds.music.playing = true;
+            
+            // Create a more dynamic music system with melodies and pauses
+            function playAmbientPhrase() {
+                if (!sounds.music.playing) return;
+                
+                // Random melody notes from a space-like scale
+                const notes = [220, 246.94, 293.66, 329.63, 369.99, 415.30, 466.16]; // A minor pentatonic + some
+                const melody = [];
+                const phraseLength = 4 + Math.floor(Math.random() * 4); // 4-7 notes
+                
+                for (let i = 0; i < phraseLength; i++) {
+                    melody.push(notes[Math.floor(Math.random() * notes.length)]);
+                }
+                
+                // Play the melody
+                melody.forEach((freq, index) => {
+                    setTimeout(() => {
+                        if (!sounds.music.playing) return;
+                        
+                        const osc = audioContext.createOscillator();
+                        const gain = audioContext.createGain();
+                        const filter = audioContext.createBiquadFilter();
+                        
+                        osc.type = Math.random() > 0.5 ? 'sine' : 'triangle';
+                        osc.frequency.setValueAtTime(freq, audioContext.currentTime);
+                        
+                        filter.type = 'lowpass';
+                        filter.frequency.setValueAtTime(1200 + Math.random() * 800, audioContext.currentTime);
+                        filter.Q.setValueAtTime(0.5, audioContext.currentTime);
+                        
+                        gain.gain.setValueAtTime(0, audioContext.currentTime);
+                        gain.gain.linearRampToValueAtTime(0.03, audioContext.currentTime + 0.1);
+                        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 2);
+                        
+                        osc.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(audioContext.destination);
+                        
+                        osc.start();
+                        osc.stop(audioContext.currentTime + 2);
+                        
+                    }, index * 800 + Math.random() * 400); // Staggered timing with variation
+                });
+                
+                // Schedule next phrase with a pause
+                const nextPhraseDelay = (phraseLength * 800) + 3000 + Math.random() * 5000; // 3-8 second pause
+                setTimeout(playAmbientPhrase, nextPhraseDelay);
+            }
+            
+            // Add subtle bass drone that comes and goes
+            function playBassDrone() {
+                if (!sounds.music.playing) return;
+                
+                const bassFreq = [55, 73.42, 82.41][Math.floor(Math.random() * 3)];
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                const filter = audioContext.createBiquadFilter();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(bassFreq, audioContext.currentTime);
+                
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(200, audioContext.currentTime);
+                
+                gain.gain.setValueAtTime(0, audioContext.currentTime);
+                gain.gain.linearRampToValueAtTime(0.015, audioContext.currentTime + 2);
+                gain.gain.linearRampToValueAtTime(0.015, audioContext.currentTime + 8);
+                gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 10);
+                
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(audioContext.destination);
+                
+                osc.start();
+                osc.stop(audioContext.currentTime + 10);
+                
+                sounds.music.oscillators.push(osc);
+                sounds.music.gainNodes.push(gain);
+                
+                // Schedule next bass drone
+                setTimeout(playBassDrone, 15000 + Math.random() * 10000); // 15-25 seconds
+            }
+            
+            // Add atmospheric pads occasionally
+            function playAtmosphericPad() {
+                if (!sounds.music.playing) return;
+                
+                const chordFreqs = [
+                    [220, 261.63, 329.63], // Am
+                    [246.94, 293.66, 369.99], // Bm
+                    [196, 246.94, 293.66] // G
+                ][Math.floor(Math.random() * 3)];
+                
+                chordFreqs.forEach((freq, index) => {
+                    setTimeout(() => {
+                        if (!sounds.music.playing) return;
+                        
+                        const osc = audioContext.createOscillator();
+                        const gain = audioContext.createGain();
+                        const filter = audioContext.createBiquadFilter();
+                        
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, audioContext.currentTime);
+                        
+                        filter.type = 'lowpass';
+                        filter.frequency.setValueAtTime(600, audioContext.currentTime);
+                        filter.Q.setValueAtTime(1, audioContext.currentTime);
+                        
+                        gain.gain.setValueAtTime(0, audioContext.currentTime);
+                        gain.gain.linearRampToValueAtTime(0.008, audioContext.currentTime + 3);
+                        gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 12);
+                        
+                        osc.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(audioContext.destination);
+                        
+                        osc.start();
+                        osc.stop(audioContext.currentTime + 12);
+                        
+                        sounds.music.oscillators.push(osc);
+                        sounds.music.gainNodes.push(gain);
+                        
+                    }, index * 100);
+                });
+                
+                // Schedule next pad
+                setTimeout(playAtmosphericPad, 25000 + Math.random() * 15000); // 25-40 seconds
+            }
+            
+            // Start the different musical elements with delays
+            setTimeout(playAmbientPhrase, 1000);
+            setTimeout(playBassDrone, 5000);
+            setTimeout(playAtmosphericPad, 12000);
+        }
+        
+        function stopBackgroundMusic() {
+            if (!sounds.music.playing) return;
+            
+            sounds.music.playing = false;
+            
+            // Fade out and stop all music oscillators
+            sounds.music.gainNodes.forEach(gainNode => {
+                gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 1);
+            });
+            
+            setTimeout(() => {
+                sounds.music.oscillators.forEach(osc => {
+                    try {
+                        osc.stop();
+                    } catch (e) {
+                        // Oscillator might already be stopped
+                    }
+                });
+                sounds.music.oscillators = [];
+                sounds.music.gainNodes = [];
+            }, 1100);
         }
         
         // Create sound effects using oscillators
@@ -355,6 +524,26 @@
                 sounds.rotationThrust.oscillator.stop();
                 sounds.rotationThrust = null;
             }
+        }
+        
+        // Music control
+        let musicEnabled = true;
+        
+        function toggleMusic() {
+            musicEnabled = !musicEnabled;
+            const button = document.getElementById('musicToggle');
+            
+            if (musicEnabled) {
+                button.textContent = '🎵 Music: ON';
+                if (game.gameStarted && !game.gameOver) {
+                    startBackgroundMusic();
+                }
+            } else {
+                button.textContent = '🔇 Music: OFF';
+                stopBackgroundMusic();
+            }
+            
+            playButtonSound();
         }
         
         // Highscores (stored in localStorage)
@@ -809,6 +998,11 @@
             
             playButtonSound();
             
+            // Start music only if enabled
+            if (musicEnabled) {
+                startBackgroundMusic();
+            }
+            
             game.difficulty = difficulty;
             game.gameStarted = true;
             game.startTime = Date.now();
@@ -824,6 +1018,8 @@
         }
         
         function showDifficultyScreen() {
+            playButtonSound();
+            stopBackgroundMusic();
             game.gameStarted = false;
             game.gameOver = false;
             document.getElementById('gameOver').style.display = 'none';
