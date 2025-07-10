@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunar Lander Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        canvas {
+            border: 2px solid #333;
+            background: linear-gradient(to bottom, #000428, #004e92);
+            outline: none;
+            cursor: crosshair;
+        }
+        
+        canvas:focus {
+            border-color: #666;
+        }
+        
+        .controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .info {
+            margin-top: 10px;
+            display: flex;
+            gap: 30px;
+            font-size: 18px;
+        }
+        
+        .game-over, .difficulty-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+        
+        .difficulty-screen {
+            display: block;
+        }
+        
+        .difficulty-button {
+            display: block;
+            width: 200px;
+            margin: 10px auto;
+            padding: 15px;
+            font-size: 16px;
+        }
+        
+        .difficulty-easy { border-color: #4CAF50; }
+        .difficulty-medium { border-color: #FF9800; }
+        .difficulty-hard { border-color: #F44336; }
+        .difficulty-nightmare { border-color: #9C27B0; }
+        
+        button {
+            background: #333;
+            color: #fff;
+            border: 2px solid #666;
+            padding: 10px 20px;
+            margin: 10px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        
+        button:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 Lunar Lander</h1>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div class="controls">
+        <p><strong>Controls:</strong> Arrow Keys to thrust | Space to restart</p>
+        <p>Land gently on the flat surfaces to win!</p>
+        <p><em>Click on the game area if controls stop working</em></p>
+    </div>
+    
+    <div class="info">
+        <div>Fuel: <span id="fuel">100</span>%</div>
+        <div>Altitude: <span id="altitude">0</span>m</div>
+        <div>Velocity: <span id="velocity">0.0</span> m/s</div>
+    </div>
+    
+    <div class="difficulty-screen" id="difficultyScreen">
+        <h2>🚀 Select Difficulty</h2>
+        <p>Choose your mission difficulty level</p>
+        
+        <button class="difficulty-button difficulty-easy" onclick="startGame('easy')">
+            <strong>EASY</strong><br>
+            Low gravity • Large landing pads • Smooth terrain
+        </button>
+        
+        <button class="difficulty-button difficulty-medium" onclick="startGame('medium')">
+            <strong>MEDIUM</strong><br>
+            Normal gravity • Medium landing pads • Moderate terrain
+        </button>
+        
+        <button class="difficulty-button difficulty-hard" onclick="startGame('hard')">
+            <strong>HARD</strong><br>
+            High gravity • Small landing pads • Rough terrain
+        </button>
+        
+        <button class="difficulty-button difficulty-nightmare" onclick="startGame('nightmare')">
+            <strong>NIGHTMARE</strong><br>
+            Extreme gravity • Tiny landing pads • Chaotic terrain
+        </button>
+    </div>
+    
+    <div class="game-over" id="gameOver">
+        <h2 id="gameOverTitle">Game Over</h2>
+        <p id="gameOverMessage"></p>
+        <button onclick="restartGame()">Play Again</button>
+        <button onclick="showDifficultyScreen()">Change Difficulty</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Game state
+        let game = {
+            lander: {
+                x: 400,
+                y: 50,
+                vx: 0,
+                vy: 0,
+                angle: 0,
+                fuel: 100,
+                thrust: false,
+                thrustLeft: false,
+                thrustRight: false,
+                size: 15
+            },
+            gravity: 0.1,
+            thrustPower: 0.2,
+            rotationSpeed: 0.05,
+            gameOver: false,
+            won: false,
+            stars: [],
+            gameStarted: false,
+            difficulty: 'medium'
+        };
+        
+        // Difficulty settings
+        const difficulties = {
+            easy: {
+                gravity: 0.015,
+                thrustPower: 0.15,
+                landingPadSize: 120,
+                terrainRoughness: 10,
+                landingPads: [
+                    { start: 100, end: 220, height: canvas.height - 80 },
+                    { start: 340, end: 460, height: canvas.height - 120 },
+                    { start: 580, end: 700, height: canvas.height - 60 }
+                ]
+            },
+            medium: {
+                gravity: 0.03,
+                thrustPower: 0.12,
+                landingPadSize: 100,
+                terrainRoughness: 20,
+                landingPads: [
+                    { start: 150, end: 250, height: canvas.height - 80 },
+                    { start: 400, end: 500, height: canvas.height - 120 },
+                    { start: 650, end: 750, height: canvas.height - 60 }
+                ]
+            },
+            hard: {
+                gravity: 0.05,
+                thrustPower: 0.1,
+                landingPadSize: 80,
+                terrainRoughness: 35,
+                landingPads: [
+                    { start: 180, end: 260, height: canvas.height - 90 },
+                    { start: 360, end: 440, height: canvas.height - 140 },
+                    { start: 620, end: 700, height: canvas.height - 70 }
+                ]
+            },
+            nightmare: {
+                gravity: 0.07,
+                thrustPower: 0.08,
+                landingPadSize: 60,
+                terrainRoughness: 50,
+                landingPads: [
+                    { start: 200, end: 260, height: canvas.height - 100 },
+                    { start: 370, end: 430, height: canvas.height - 160 },
+                    { start: 600, end: 660, height: canvas.height - 80 }
+                ]
+            }
+        };
+        
+        // Generate random stars for background
+        function generateStars() {
+            game.stars = [];
+            for (let i = 0; i < 100; i++) {
+                game.stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height * 0.7,
+                    brightness: Math.random()
+                });
+            }
+        }
+        
+        // Terrain generation
+        const terrain = [];
+        function generateTerrain() {
+            terrain.length = 0;
+            let height = canvas.height - 100;
+            
+            const diffSettings = difficulties[game.difficulty];
+            const landingPads = diffSettings.landingPads;
+            const roughness = diffSettings.terrainRoughness;
+            
+            for (let x = 0; x <= canvas.width; x += 10) {
+                let isLandingPad = false;
+                let padHeight = height;
+                
+                // Check if this x position is on a landing pad
+                for (let pad of landingPads) {
+                    if (x >= pad.start && x <= pad.end) {
+                        isLandingPad = true;
+                        padHeight = pad.height;
+                        break;
+                    }
+                }
+                
+                if (isLandingPad) {
+                    height = padHeight;
+                } else {
+                    // Add randomness based on difficulty
+                    height += (Math.random() - 0.5) * roughness;
+                    height = Math.max(canvas.height - 250, Math.min(canvas.height - 40, height));
+                }
+                
+                terrain.push({ x: x, y: height, isLandingPad: isLandingPad });
+            }
+        }
+        
+        // Input handling - More robust system
+        const keys = {
+            ArrowUp: false,
+            ArrowLeft: false,
+            ArrowRight: false,
+            Space: false
+        };
+        
+        // Simple, reliable key handling
+        document.addEventListener('keydown', (e) => {
+            if (e.code in keys) {
+                keys[e.code] = true;
+                e.preventDefault();
+            }
+            
+            // Handle restart immediately
+            if (e.code === 'Space' && game.gameOver) {
+                restartGame();
+                e.preventDefault();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (e.code in keys) {
+                keys[e.code] = false;
+                e.preventDefault();
+            }
+        });
+        
+        // Also handle window blur/focus to reset keys
+        window.addEventListener('blur', () => {
+            // Reset all keys when window loses focus
+            Object.keys(keys).forEach(key => keys[key] = false);
+        });
+        
+        function handleInput() {
+            if (game.gameOver || !game.gameStarted) return;
+            
+            // Reset thrust states first
+            game.lander.thrust = false;
+            game.lander.thrustLeft = false;
+            game.lander.thrustRight = false;
+            
+            // Check keys and apply thrust
+            if (keys.ArrowUp && game.lander.fuel > 0) {
+                game.lander.thrust = true;
+                game.lander.fuel -= 0.5;
+                console.log('Main thrust SET TO TRUE, fuel:', game.lander.fuel); // Debug
+            }
+            
+            if (keys.ArrowLeft && game.lander.fuel > 0) {
+                game.lander.thrustLeft = true;
+                game.lander.fuel -= 0.2;
+                console.log('Left thrust SET TO TRUE'); // Debug
+            }
+            
+            if (keys.ArrowRight && game.lander.fuel > 0) {
+                game.lander.thrustRight = true;
+                game.lander.fuel -= 0.2;
+                console.log('Right thrust SET TO TRUE'); // Debug
+            }
+            
+            // Debug: Log the actual thrust states after setting them
+            console.log('Thrust states after input:', {
+                thrust: game.lander.thrust,
+                thrustLeft: game.lander.thrustLeft,
+                thrustRight: game.lander.thrustRight,
+                fuel: game.lander.fuel
+            });
+        }
+        
+        function updatePhysics() {
+            if (game.gameOver || !game.gameStarted) return;
+            
+            const lander = game.lander;
+            const diffSettings = difficulties[game.difficulty];
+            
+            // Debug: Log thrust states at start of physics update
+            if (lander.thrust || lander.thrustLeft || lander.thrustRight) {
+                console.log('Physics sees thrust states:', {
+                    thrust: lander.thrust,
+                    thrustLeft: lander.thrustLeft,
+                    thrustRight: lander.thrustRight
+                });
+            }
+            
+            // Apply thrust forces
+            if (lander.thrust) {
+                const thrustX = Math.sin(lander.angle) * diffSettings.thrustPower;
+                const thrustY = -Math.cos(lander.angle) * diffSettings.thrustPower;
+                lander.vx += thrustX;
+                lander.vy += thrustY;
+                console.log('Applied main thrust:', thrustX, thrustY, 'New velocity:', lander.vx, lander.vy);
+            }
+            
+            // Apply rotation thrust
+            if (lander.thrustLeft) {
+                lander.angle -= game.rotationSpeed;
+                console.log('Applied left rotation, new angle:', lander.angle);
+            }
+            if (lander.thrustRight) {
+                lander.angle += game.rotationSpeed;
+                console.log('Applied right rotation, new angle:', lander.angle);
+            }
+            
+            // Apply gravity
+            lander.vy += diffSettings.gravity;
+            
+            // Update position
+            lander.x += lander.vx;
+            lander.y += lander.vy;
+            
+            // Apply some drag to make it more controllable
+            lander.vx *= 0.999;
+            lander.vy *= 0.999;
+            
+            // Check boundaries
+            if (lander.x < 0) {
+                lander.x = 0;
+                lander.vx = Math.abs(lander.vx) * 0.5; // Bounce off left wall
+            }
+            if (lander.x > canvas.width) {
+                lander.x = canvas.width;
+                lander.vx = -Math.abs(lander.vx) * 0.5; // Bounce off right wall
+            }
+            
+            // Don't let lander go above screen
+            if (lander.y < 0) {
+                lander.y = 0;
+                lander.vy = Math.abs(lander.vy) * 0.5;
+            }
+            
+            // Check collision with terrain
+            checkCollision();
+        }
+        
+        function checkCollision() {
+            const lander = game.lander;
+            const landerBottom = lander.y + lander.size;
+            
+            // Find terrain height at lander position
+            let terrainHeight = canvas.height;
+            let isOnLandingPad = false;
+            
+            for (let i = 0; i < terrain.length - 1; i++) {
+                if (lander.x >= terrain[i].x && lander.x <= terrain[i + 1].x) {
+                    terrainHeight = terrain[i].y;
+                    isOnLandingPad = terrain[i].isLandingPad;
+                    break;
+                }
+            }
+            
+            if (landerBottom >= terrainHeight) {
+                const speed = Math.sqrt(lander.vx * lander.vx + lander.vy * lander.vy);
+                const angle = Math.abs(lander.angle);
+                
+                if (isOnLandingPad && speed < 2 && angle < 0.3) {
+                    // Successful landing
+                    game.won = true;
+                    game.gameOver = true;
+                    showGameOver("Mission Accomplished!", "Perfect landing! You're a true pilot.");
+                } else {
+                    // Crash
+                    game.gameOver = true;
+                    let message = "Crashed! ";
+                    if (!isOnLandingPad) message += "You must land on the flat surfaces.";
+                    else if (speed >= 2) message += "Landing speed too high!";
+                    else if (angle >= 0.3) message += "Landing angle too steep!";
+                    
+                    showGameOver("Mission Failed", message);
+                }
+                
+                lander.vx = 0;
+                lander.vy = 0;
+                lander.y = terrainHeight - lander.size;
+            }
+        }
+        
+        function showGameOver(title, message) {
+            document.getElementById('gameOverTitle').textContent = title;
+            document.getElementById('gameOverMessage').textContent = message;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+        
+        function startGame(difficulty) {
+            game.difficulty = difficulty;
+            game.gameStarted = true;
+            
+            // Hide difficulty screen
+            document.getElementById('difficultyScreen').style.display = 'none';
+            
+            // Reset game state
+            resetLander();
+            
+            // Generate terrain based on difficulty
+            generateTerrain();
+            
+            // Test: Give lander a small initial velocity to verify physics work
+            game.lander.vx = 0.1;
+            console.log('Game started with difficulty:', difficulty);
+            console.log('Gravity setting:', difficulties[difficulty].gravity);
+            console.log('Thrust power:', difficulties[difficulty].thrustPower);
+        }
+        
+        function showDifficultyScreen() {
+            game.gameStarted = false;
+            game.gameOver = false;
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('difficultyScreen').style.display = 'block';
+        }
+        
+        function resetLander() {
+            game.lander = {
+                x: 400,
+                y: 50,
+                vx: 0,
+                vy: 0,
+                angle: 0,
+                fuel: 100,
+                thrust: false,
+                thrustLeft: false,
+                thrustRight: false,
+                size: 15
+            };
+            game.gameOver = false;
+            game.won = false;
+        }
+        
+        function restartGame() {
+            resetLander();
+            generateTerrain();
+            document.getElementById('gameOver').style.display = 'none';
+        }
+        
+        function drawStars() {
+            ctx.fillStyle = '#fff';
+            for (let star of game.stars) {
+                ctx.globalAlpha = star.brightness;
+                ctx.fillRect(star.x, star.y, 1, 1);
+            }
+            ctx.globalAlpha = 1;
+        }
+        
+        function drawTerrain() {
+            ctx.strokeStyle = '#666';
+            ctx.fillStyle = '#333';
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            
+            for (let point of terrain) {
+                ctx.lineTo(point.x, point.y);
+            }
+            
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            
+            // Highlight landing pads
+            ctx.strokeStyle = '#0f0';
+            ctx.lineWidth = 3;
+            for (let i = 0; i < terrain.length - 1; i++) {
+                if (terrain[i].isLandingPad) {
+                    ctx.beginPath();
+                    ctx.moveTo(terrain[i].x, terrain[i].y);
+                    ctx.lineTo(terrain[i + 1].x, terrain[i + 1].y);
+                    ctx.stroke();
+                }
+            }
+        }
+        
+        function drawLander() {
+            const lander = game.lander;
+            
+            ctx.save();
+            ctx.translate(lander.x, lander.y);
+            ctx.rotate(lander.angle);
+            
+            // Draw lander body
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(-8, -8, 16, 16);
+            
+            // Draw legs
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-8, 8);
+            ctx.lineTo(-12, 16);
+            ctx.moveTo(8, 8);
+            ctx.lineTo(12, 16);
+            ctx.stroke();
+            
+            // Draw thrust flame
+            if (lander.thrust && lander.fuel > 0) {
+                ctx.fillStyle = '#ff4444';
+                ctx.beginPath();
+                ctx.moveTo(-4, 8);
+                ctx.lineTo(0, 20 + Math.random() * 10);
+                ctx.lineTo(4, 8);
+                ctx.closePath();
+                ctx.fill();
+            }
+            
+            // Draw rotation thrust
+            if (lander.thrustLeft && lander.fuel > 0) {
+                ctx.fillStyle = '#4444ff';
+                ctx.fillRect(8, -2, 8, 4);
+            }
+            if (lander.thrustRight && lander.fuel > 0) {
+                ctx.fillStyle = '#4444ff';
+                ctx.fillRect(-16, -2, 8, 4);
+            }
+            
+            ctx.restore();
+        }
+        
+        function updateUI() {
+            const lander = game.lander;
+            const altitude = Math.max(0, Math.round((canvas.height - lander.y) / 5));
+            const velocity = Math.sqrt(lander.vx * lander.vx + lander.vy * lander.vy);
+            
+            document.getElementById('fuel').textContent = Math.max(0, Math.round(lander.fuel));
+            document.getElementById('altitude').textContent = altitude;
+            document.getElementById('velocity').textContent = velocity.toFixed(1);
+        }
+        
+        // Add visual debug info on canvas
+        function drawDebugInfo() {
+            if (!game.gameStarted || game.gameOver) return;
+            
+            ctx.fillStyle = '#fff';
+            ctx.font = '12px Courier New';
+            
+            // Show active keys and physics values
+            let debugY = 20;
+            
+            // Key states
+            if (keys.ArrowUp) {
+                ctx.fillStyle = '#0f0';
+                ctx.fillText('↑ THRUST ACTIVE', 10, debugY);
+                debugY += 15;
+            }
+            if (keys.ArrowLeft) {
+                ctx.fillStyle = '#0ff';
+                ctx.fillText('← LEFT ACTIVE', 10, debugY);
+                debugY += 15;
+            }
+            if (keys.ArrowRight) {
+                ctx.fillStyle = '#0ff';
+                ctx.fillText('→ RIGHT ACTIVE', 10, debugY);
+                debugY += 15;
+            }
+            
+            // Physics values
+            ctx.fillStyle = '#ff0';
+            ctx.fillText(`VX: ${game.lander.vx.toFixed(3)}`, 10, debugY);
+            debugY += 15;
+            ctx.fillText(`VY: ${game.lander.vy.toFixed(3)}`, 10, debugY);
+            debugY += 15;
+            ctx.fillText(`Angle: ${game.lander.angle.toFixed(3)}`, 10, debugY);
+            debugY += 15;
+            ctx.fillText(`Fuel: ${game.lander.fuel.toFixed(1)}`, 10, debugY);
+            debugY += 15;
+            
+            // Thrust states
+            ctx.fillStyle = '#f0f';
+            if (game.lander.thrust) {
+                ctx.fillText('MAIN THRUST ON', 10, debugY);
+            } else {
+                ctx.fillText('main thrust off', 10, debugY);
+            }
+            debugY += 15;
+            
+            if (game.lander.thrustLeft) {
+                ctx.fillText('LEFT THRUST ON', 10, debugY);
+            } else if (game.lander.thrustRight) {
+                ctx.fillText('RIGHT THRUST ON', 10, debugY);
+            } else {
+                ctx.fillText('rotation thrust off', 10, debugY);
+            }
+            
+            // Show if no keys are pressed
+            if (!keys.ArrowUp && !keys.ArrowLeft && !keys.ArrowRight) {
+                ctx.fillStyle = '#666';
+                ctx.fillText('No keys pressed', 10, 20);
+            }
+        }
+        
+        function gameLoop() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (game.gameStarted) {
+                // Handle input
+                handleInput();
+                
+                // Update physics
+                updatePhysics();
+                
+                // Draw everything
+                drawStars();
+                drawTerrain();
+                drawLander();
+                
+                // Draw debug info to see if keys are working
+                drawDebugInfo();
+                
+                // Update UI
+                updateUI();
+            } else {
+                // Just draw stars when not started
+                drawStars();
+                
+                // Draw title screen message
+                ctx.fillStyle = '#fff';
+                ctx.font = '24px Courier New';
+                ctx.textAlign = 'center';
+                ctx.fillText('Select difficulty to begin mission', canvas.width / 2, canvas.height / 2);
+                ctx.textAlign = 'left';
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Initialize game
+        generateStars();
+        gameLoop();
+    </script>
+</body>
+</html>
