@@ -199,6 +199,164 @@
             }
         };
         
+        // Sound system
+        let audioContext;
+        let sounds = {
+            thrust: null,
+            rotationThrust: null,
+            landing: null,
+            crash: null,
+            button: null
+        };
+        
+        // Initialize audio context
+        function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.log('Web Audio API not supported');
+                return false;
+            }
+            return true;
+        }
+        
+        // Create sound effects using oscillators
+        function createThrustSound() {
+            if (!audioContext) return null;
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            const filter = audioContext.createBiquadFilter();
+            
+            oscillator.type = 'sawtooth';
+            oscillator.frequency.setValueAtTime(80, audioContext.currentTime);
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(200, audioContext.currentTime);
+            
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            
+            oscillator.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            return { oscillator, gainNode };
+        }
+        
+        function createRotationThrustSound() {
+            if (!audioContext) return null;
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.type = 'square';
+            oscillator.frequency.setValueAtTime(150, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.05, audioContext.currentTime);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            return { oscillator, gainNode };
+        }
+        
+        function playLandingSound() {
+            if (!audioContext) return;
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.5);
+            
+            gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+        
+        function playCrashSound() {
+            if (!audioContext) return;
+            
+            // Create explosion-like sound with noise
+            const bufferSize = audioContext.sampleRate * 0.5;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+            }
+            
+            const source = audioContext.createBufferSource();
+            const gainNode = audioContext.createGain();
+            const filter = audioContext.createBiquadFilter();
+            
+            source.buffer = buffer;
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(800, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            
+            source.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            source.start();
+        }
+        
+        function playButtonSound() {
+            if (!audioContext) return;
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+            
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+        
+        // Sound management
+        function startThrustSound() {
+            if (sounds.thrust) return; // Already playing
+            sounds.thrust = createThrustSound();
+            if (sounds.thrust) {
+                sounds.thrust.oscillator.start();
+            }
+        }
+        
+        function stopThrustSound() {
+            if (sounds.thrust) {
+                sounds.thrust.oscillator.stop();
+                sounds.thrust = null;
+            }
+        }
+        
+        function startRotationThrustSound() {
+            if (sounds.rotationThrust) return; // Already playing
+            sounds.rotationThrust = createRotationThrustSound();
+            if (sounds.rotationThrust) {
+                sounds.rotationThrust.oscillator.start();
+            }
+        }
+        
+        function stopRotationThrustSound() {
+            if (sounds.rotationThrust) {
+                sounds.rotationThrust.oscillator.stop();
+                sounds.rotationThrust = null;
+            }
+        }
+        
         // Highscores (stored in localStorage)
         let highscores = JSON.parse(localStorage.getItem('lunarLanderHighscores')) || {
             easy: [],
@@ -356,22 +514,37 @@
             game.lander.thrustLeft = false;
             game.lander.thrustRight = false;
             
+            // Handle main thrust
             if (keys.ArrowUp && game.lander.fuel > 0) {
                 game.lander.thrust = true;
                 game.lander.fuel -= diffSettings.fuelConsumptionMain;
                 game.lander.fuel = Math.max(0, game.lander.fuel);
+                startThrustSound();
+            } else {
+                stopThrustSound();
             }
             
+            // Handle rotation thrust
+            let rotationActive = false;
             if (keys.ArrowLeft && game.lander.fuel > 0) {
                 game.lander.thrustLeft = true;
                 game.lander.fuel -= diffSettings.fuelConsumptionRotation;
                 game.lander.fuel = Math.max(0, game.lander.fuel);
+                rotationActive = true;
             }
             
             if (keys.ArrowRight && game.lander.fuel > 0) {
                 game.lander.thrustRight = true;
                 game.lander.fuel -= diffSettings.fuelConsumptionRotation;
                 game.lander.fuel = Math.max(0, game.lander.fuel);
+                rotationActive = true;
+            }
+            
+            // Manage rotation thrust sound
+            if (rotationActive) {
+                startRotationThrustSound();
+            } else {
+                stopRotationThrustSound();
             }
         }
         
@@ -565,10 +738,17 @@
                 const speed = Math.sqrt(lander.vx * lander.vx + lander.vy * lander.vy);
                 const angle = Math.abs(lander.angle);
                 
+                // Stop all thrust sounds
+                stopThrustSound();
+                stopRotationThrustSound();
+                
                 if (isOnLandingPad && speed < 2 && angle < 0.3) {
                     // Successful landing
                     game.won = true;
                     game.gameOver = true;
+                    
+                    // Play landing sound
+                    playLandingSound();
                     
                     // Calculate score
                     const scoreData = calculateScore();
@@ -601,6 +781,10 @@
                     // Crash
                     game.gameOver = true;
                     game.score = 0;
+                    
+                    // Play crash sound
+                    playCrashSound();
+                    
                     let message = "Crashed! ";
                     if (!isOnLandingPad) message += "You must land on the flat surfaces.";
                     else if (speed >= 2) message += "Landing speed too high!";
@@ -617,6 +801,13 @@
         
         function startGame(difficulty) {
             console.log('Starting game with difficulty:', difficulty);
+            
+            // Initialize audio on first user interaction
+            if (!audioContext) {
+                initAudio();
+            }
+            
+            playButtonSound();
             
             game.difficulty = difficulty;
             game.gameStarted = true;
