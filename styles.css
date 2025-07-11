@@ -1,0 +1,199 @@
+/* ===== MAIN LAYOUT ===== */
+body {
+    margin: 0;
+    padding: 20px;
+    background: #000;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+h1 {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+/* ===== CANVAS ===== */
+canvas {
+    border: 2px solid #333;
+    background: linear-gradient(to bottom, #000428, #004e92);
+    outline: none;
+    cursor: crosshair;
+}
+
+canvas:focus {
+    border-color: #666;
+}
+
+/* ===== CONTROLS & INFO ===== */
+.controls {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.info {
+    margin-top: 10px;
+    display: flex;
+    gap: 30px;
+    font-size: 18px;
+}
+
+/* ===== BUTTONS ===== */
+button {
+    background: #333;
+    color: #fff;
+    border: 2px solid #666;
+    padding: 10px 20px;
+    margin: 10px;
+    cursor: pointer;
+    font-family: inherit;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+button:hover {
+    background: #555;
+}
+
+.danger-button {
+    background: #800;
+    border-color: #a00;
+}
+
+.danger-button:hover {
+    background: #a00;
+}
+
+/* ===== GAME SCREENS ===== */
+.game-over, .difficulty-screen {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    padding: 30px;
+    border-radius: 10px;
+    text-align: center;
+    display: none;
+    border: 2px solid #333;
+    min-width: 400px;
+}
+
+.difficulty-screen {
+    display: block;
+}
+
+/* ===== DIFFICULTY BUTTONS ===== */
+.difficulty-button {
+    display: block;
+    width: 300px;
+    margin: 10px auto;
+    padding: 15px;
+    font-size: 16px;
+    text-align: center;
+}
+
+.difficulty-easy { 
+    border-color: #4CAF50; 
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.difficulty-medium { 
+    border-color: #FF9800; 
+    background: rgba(255, 152, 0, 0.1);
+}
+
+.difficulty-hard { 
+    border-color: #F44336; 
+    background: rgba(244, 67, 54, 0.1);
+}
+
+.difficulty-nightmare { 
+    border-color: #9C27B0; 
+    background: rgba(156, 39, 176, 0.1);
+}
+
+/* ===== HIGHSCORE SCREEN ===== */
+.highscore-tabs {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.highscore-tabs button {
+    margin: 0;
+    padding: 8px 16px;
+}
+
+#highscoreList {
+    min-height: 200px;
+    text-align: left;
+    font-size: 14px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+#highscoreList table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+#highscoreList th,
+#highscoreList td {
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid #333;
+}
+
+#highscoreList th {
+    background: #222;
+    font-weight: bold;
+}
+
+#highscoreList tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* ===== SCORE BREAKDOWN ===== */
+#scoreBreakdown {
+    margin: 20px 0;
+    font-size: 14px;
+    text-align: left;
+}
+
+#scoreBreakdown h3 {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+#scoreBreakdown h4 {
+    margin-bottom: 10px;
+    color: #ccc;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 900px) {
+    canvas {
+        width: 90vw;
+        height: calc(90vw * 0.75);
+    }
+    
+    .info {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+    
+    .difficulty-button {
+        width: 250px;
+    }
+    
+    .game-over, .difficulty-screen {
+        width: 90vw;
+        min-width: unset;
+    }
+}
